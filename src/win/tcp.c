@@ -267,7 +267,7 @@ static int uv__bind(uv_tcp_t* handle,
     if (handle->flags & UV_HANDLE_TCP_V6ONLY) {
       on = 1;
       if (setsockopt(handle->socket, IPPROTO_IPV6, IPV6_V6ONLY, (void*)&on,
-            sizeof(on)) != ) {
+            sizeof(on)) != 0) {
         closesocket(sock);
         return -1;
       }
