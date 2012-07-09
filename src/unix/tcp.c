@@ -40,6 +40,7 @@ static int uv__bind(uv_tcp_t* tcp,
                     int addrsize) {
   int saved_errno;
   int status;
+  int on;
 
   saved_errno = errno;
   status = -1;
@@ -56,6 +57,17 @@ static int uv__bind(uv_tcp_t* tcp,
       close(tcp->fd);
       tcp->fd = -1;
       status = -2;
+      goto out;
+    }
+  }
+
+  if (tcp->flags & UV_TCP_V6ONLY) {
+    on = 1;
+    if (setsockopt(tcp->fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)) == -1) {
+      close(tcp->fd);
+      tcp->fd = -1;
+      status = -3;
+      uv__set_sys_error(tcp->loop, errno);
       goto out;
     }
   }
@@ -256,7 +268,6 @@ int uv__tcp_nodelay(uv_tcp_t* handle, int enable) {
   return 0;
 }
 
-
 int uv__tcp_keepalive(uv_tcp_t* handle, int enable, unsigned int delay) {
   if (setsockopt(handle->fd,
                  SOL_SOCKET,
@@ -318,6 +329,19 @@ int uv_tcp_keepalive(uv_tcp_t* handle, int enable, unsigned int delay) {
   /* TODO Store delay if handle->fd == -1 but don't want to enlarge
    *       uv_tcp_t with an int that's almost never used...
    */
+
+  return 0;
+}
+
+
+int uv_tcp_v6only(uv_tcp_t* handle, int enable) {
+  if (handle->fd != -1)
+    return -1;
+
+  if (enable)
+    handle->flags |= UV_TCP_V6ONLY;
+  else
+    handle->flags &= ~UV_TCP_V6ONLY;
 
   return 0;
 }

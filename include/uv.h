@@ -602,6 +602,9 @@ UV_EXTERN int uv_tcp_nodelay(uv_tcp_t* handle, int enable);
 UV_EXTERN int uv_tcp_keepalive(uv_tcp_t* handle, int enable,
     unsigned int delay);
 
+/* Enable IPv6 only sockets and disable IPv4 mapping */
+UV_EXTERN int uv_tcp_v6only(uv_tcp_t* handle, int enable);
+
 /*
  * This setting applies to Windows only.
  * Enable/disable simultaneous asynchronous accept requests that are

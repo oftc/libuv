@@ -1224,6 +1224,20 @@ int uv_tcp_keepalive(uv_tcp_t* handle, int enable, unsigned int delay) {
 }
 
 
+int uv_tcp_v6only(uv_tcp_t* handle, int enable) {
+  if(handle->socket != INVALID_SOCKET)
+    return -1;
+
+  if (enable) {
+    handle->flags |= UV_HANDLE_TCP_V6ONLY;
+  } else {
+    handle->flags &= ~UV_HANDLE_TCP_V6ONLY;
+  }
+
+  return 0;
+}
+
+
 int uv_tcp_duplicate_socket(uv_tcp_t* handle, int pid,
     LPWSAPROTOCOL_INFOW protocol_info) {
   if (!(handle->flags & UV_HANDLE_CONNECTION)) {
