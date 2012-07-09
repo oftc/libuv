@@ -347,6 +347,7 @@
         'test/test-stdio-over-pipes.c',
         'test/test-tcp-bind-error.c',
         'test/test-tcp-bind6-error.c',
+        'test/test-tcp-bind6-v6only.c',
         'test/test-tcp-close.c',
         'test/test-tcp-close-while-connecting.c',
         'test/test-tcp-connect-error-after-write.c',
