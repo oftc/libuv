@@ -243,6 +243,7 @@ static int uv__bind(uv_tcp_t* handle,
                     int addrsize) {
   DWORD err;
   int r;
+  int on;
 
   if (handle->socket == INVALID_SOCKET) {
     SOCKET sock = socket(domain, SOCK_STREAM, 0);
@@ -261,6 +262,15 @@ static int uv__bind(uv_tcp_t* handle,
     if (uv_tcp_set_socket(handle->loop, handle, sock, 0) == -1) {
       closesocket(sock);
       return -1;
+    }
+
+    if (handle->flags & UV_HANDLE_TCP_V6ONLY) {
+      on = 1;
+      if (setsockopt(handle->socket, IPPROTO_IPV6, IPV6_V6ONLY, (void*)&on,
+            sizeof(on)) != ) {
+        closesocket(sock);
+        return -1;
+      }
     }
   }
 
