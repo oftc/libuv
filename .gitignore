@@ -7,6 +7,7 @@
 *.orig
 *.sdf
 *.suo
+*.user
 core
 vgcore.*
 /out/
@@ -31,3 +32,5 @@ Release
 ipch
 *.mk
 *.Makefile
+
+*~
