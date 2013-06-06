@@ -69,7 +69,7 @@ static int uv__bind(uv_tcp_t* tcp,
 
   if (tcp->flags & UV_TCP_V6ONLY) {
     on = 1;
-    if (setsockopt(tcp->fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)) == -1)
+    if (setsockopt(tcp->io_watcher.fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)) == -1)
       return uv__set_sys_error(tcp->loop, errno);
   }
 
@@ -305,11 +305,11 @@ int uv_tcp_keepalive(uv_tcp_t* handle, int on, unsigned int delay) {
 }
 
 
-int uv_tcp_v6only(uv_tcp_t* handle, int enable) {
-  if (handle->fd != -1)
+int uv_tcp_v6only(uv_tcp_t* handle, int on) {
+  if (uv__stream_fd(handle) != -1)
     return -1;
 
-  if (enable)
+  if (on)
     handle->flags |= UV_TCP_V6ONLY;
   else
     handle->flags &= ~UV_TCP_V6ONLY;
