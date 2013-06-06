@@ -32,6 +32,7 @@ else  # Out of tree build.
 
 .PHONY:	$(builddir_name)
 $(builddir_name): $(builddir_name)/.buildstamp
+	echo $(SRCDIR)
 	$(MAKE) -C $@ -f $(CURDIR)/Makefile $(MAKECMDGOALS) \
 		SRCDIR=$(CURDIR) builddir_name=
 
