@@ -1,0 +1,2 @@
+include Makefile
+.PHONY: dvi pdf ps info html check dvi pdf ps info html
