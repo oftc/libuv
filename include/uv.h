@@ -19,7 +19,7 @@
  * IN THE SOFTWARE.
  */
 
-/* See uv_loop_new for an introduction. */
+/* See http://nikhilm.github.com/uvbook/ for an introduction. */
 
 #ifndef UV_H
 #define UV_H
@@ -30,16 +30,14 @@ extern "C" {
 #ifdef _WIN32
   /* Windows - set up dll import/export decorators. */
 # if defined(BUILDING_UV_SHARED)
-    /* Building shared library. Export everything from c-ares as well. */
+    /* Building shared library. */
 #   define UV_EXTERN __declspec(dllexport)
-#   define CARES_BUILDING_LIBRARY 1
 # elif defined(USING_UV_SHARED)
-    /* Using shared library. Use shared c-ares as well. */
+    /* Using shared library. */
 #   define UV_EXTERN __declspec(dllimport)
 # else
-    /* Building static library. Build c-ares statically as well. */
+    /* Building static library. */
 #   define UV_EXTERN /* nothing */
-#   define CARES_STATICLIB 1
 # endif
 #elif __GNUC__ >= 4
 # define UV_EXTERN __attribute__((visibility("default")))
@@ -47,87 +45,86 @@ extern "C" {
 # define UV_EXTERN /* nothing */
 #endif
 
-
-#define UV_VERSION_MAJOR 0
-#define UV_VERSION_MINOR 9
-
-
-#include <stdint.h> /* int64_t */
-#include <sys/types.h> /* size_t */
-
-#include "ares.h"
-
-#if !defined(_SSIZE_T_) && !defined(_SSIZE_T_DEFINED)
-  typedef intptr_t ssize_t;
-# define _SSIZE_T_
-# define _SSIZE_T_DEFINED
+#if defined(_MSC_VER) && _MSC_VER < 1600
+# include "uv-private/stdint-msvc2008.h"
+#else
+# include <stdint.h>
 #endif
 
-#if defined(__unix__) || defined(__POSIX__) || defined(__APPLE__)
+#include <sys/types.h> /* size_t */
+
+#if defined(__SVR4) && !defined(__unix__)
+# define __unix__
+#endif
+
+#if defined(__unix__) || defined(__POSIX__) || \
+    defined(__APPLE__) || defined(_AIX)
 # include "uv-private/uv-unix.h"
 #else
 # include "uv-private/uv-win.h"
 #endif
 
 /* Expand this list if necessary. */
-#define UV_ERRNO_MAP(XX) \
-  XX( -1, UNKNOWN, "unknown error") \
-  XX(  0, OK, "success") \
-  XX(  1, EOF, "end of file") \
-  XX(  2, EADDRINFO, "getaddrinfo error") \
-  XX(  3, EACCES, "permission denied") \
-  XX(  4, EAGAIN, "no more processes") \
-  XX(  5, EADDRINUSE, "address already in use") \
-  XX(  6, EADDRNOTAVAIL, "") \
-  XX(  7, EAFNOSUPPORT, "") \
-  XX(  8, EALREADY, "") \
-  XX(  9, EBADF, "bad file descriptor") \
-  XX( 10, EBUSY, "resource busy or locked") \
-  XX( 11, ECONNABORTED, "software caused connection abort") \
-  XX( 12, ECONNREFUSED, "connection refused") \
-  XX( 13, ECONNRESET, "connection reset by peer") \
-  XX( 14, EDESTADDRREQ, "destination address required") \
-  XX( 15, EFAULT, "bad address in system call argument") \
-  XX( 16, EHOSTUNREACH, "host is unreachable") \
-  XX( 17, EINTR, "interrupted system call") \
-  XX( 18, EINVAL, "invalid argument") \
-  XX( 19, EISCONN, "socket is already connected") \
-  XX( 20, EMFILE, "too many open files") \
-  XX( 21, EMSGSIZE, "message too long") \
-  XX( 22, ENETDOWN, "network is down") \
-  XX( 23, ENETUNREACH, "network is unreachable") \
-  XX( 24, ENFILE, "file table overflow") \
-  XX( 25, ENOBUFS, "no buffer space available") \
-  XX( 26, ENOMEM, "not enough memory") \
-  XX( 27, ENOTDIR, "not a directory") \
-  XX( 28, EISDIR, "illegal operation on a directory") \
-  XX( 29, ENONET, "machine is not on the network") \
-  XX( 31, ENOTCONN, "socket is not connected") \
-  XX( 32, ENOTSOCK, "socket operation on non-socket") \
-  XX( 33, ENOTSUP, "operation not supported on socket") \
-  XX( 34, ENOENT, "no such file or directory") \
-  XX( 35, ENOSYS, "function not implemented") \
-  XX( 36, EPIPE, "broken pipe") \
-  XX( 37, EPROTO, "protocol error") \
-  XX( 38, EPROTONOSUPPORT, "protocol not supported") \
-  XX( 39, EPROTOTYPE, "protocol wrong type for socket") \
-  XX( 40, ETIMEDOUT, "connection timed out") \
-  XX( 41, ECHARSET, "") \
-  XX( 42, EAIFAMNOSUPPORT, "") \
-  XX( 44, EAISERVICE, "") \
-  XX( 45, EAISOCKTYPE, "") \
-  XX( 46, ESHUTDOWN, "") \
-  XX( 47, EEXIST, "file already exists") \
-  XX( 48, ESRCH, "no such process") \
-  XX( 49, ENAMETOOLONG, "name too long") \
-  XX( 50, EPERM, "operation not permitted") \
-  XX( 51, ELOOP, "too many symbolic links encountered") \
-  XX( 52, EXDEV, "cross-device link not permitted") \
-  XX( 53, ENOTEMPTY, "directory not empty") \
-  XX( 54, ENOSPC, "no space left on device") \
-  XX( 55, EIO, "i/o error") \
-  XX( 56, EROFS, "read-only file system" ) \
-  XX( 57, ENODEV, "no such device" )
+#define UV_ERRNO_MAP(XX)                                                      \
+  XX( -1, UNKNOWN, "unknown error")                                           \
+  XX(  0, OK, "success")                                                      \
+  XX(  1, EOF, "end of file")                                                 \
+  XX(  2, EADDRINFO, "getaddrinfo error")                                     \
+  XX(  3, EACCES, "permission denied")                                        \
+  XX(  4, EAGAIN, "resource temporarily unavailable")                         \
+  XX(  5, EADDRINUSE, "address already in use")                               \
+  XX(  6, EADDRNOTAVAIL, "address not available")                             \
+  XX(  7, EAFNOSUPPORT, "address family not supported")                       \
+  XX(  8, EALREADY, "connection already in progress")                         \
+  XX(  9, EBADF, "bad file descriptor")                                       \
+  XX( 10, EBUSY, "resource busy or locked")                                   \
+  XX( 11, ECONNABORTED, "software caused connection abort")                   \
+  XX( 12, ECONNREFUSED, "connection refused")                                 \
+  XX( 13, ECONNRESET, "connection reset by peer")                             \
+  XX( 14, EDESTADDRREQ, "destination address required")                       \
+  XX( 15, EFAULT, "bad address in system call argument")                      \
+  XX( 16, EHOSTUNREACH, "host is unreachable")                                \
+  XX( 17, EINTR, "interrupted system call")                                   \
+  XX( 18, EINVAL, "invalid argument")                                         \
+  XX( 19, EISCONN, "socket is already connected")                             \
+  XX( 20, EMFILE, "too many open files")                                      \
+  XX( 21, EMSGSIZE, "message too long")                                       \
+  XX( 22, ENETDOWN, "network is down")                                        \
+  XX( 23, ENETUNREACH, "network is unreachable")                              \
+  XX( 24, ENFILE, "file table overflow")                                      \
+  XX( 25, ENOBUFS, "no buffer space available")                               \
+  XX( 26, ENOMEM, "not enough memory")                                        \
+  XX( 27, ENOTDIR, "not a directory")                                         \
+  XX( 28, EISDIR, "illegal operation on a directory")                         \
+  XX( 29, ENONET, "machine is not on the network")                            \
+  XX( 31, ENOTCONN, "socket is not connected")                                \
+  XX( 32, ENOTSOCK, "socket operation on non-socket")                         \
+  XX( 33, ENOTSUP, "operation not supported on socket")                       \
+  XX( 34, ENOENT, "no such file or directory")                                \
+  XX( 35, ENOSYS, "function not implemented")                                 \
+  XX( 36, EPIPE, "broken pipe")                                               \
+  XX( 37, EPROTO, "protocol error")                                           \
+  XX( 38, EPROTONOSUPPORT, "protocol not supported")                          \
+  XX( 39, EPROTOTYPE, "protocol wrong type for socket")                       \
+  XX( 40, ETIMEDOUT, "connection timed out")                                  \
+  XX( 41, ECHARSET, "invalid Unicode character")                              \
+  XX( 42, EAIFAMNOSUPPORT, "address family for hostname not supported")       \
+  XX( 44, EAISERVICE, "servname not supported for ai_socktype")               \
+  XX( 45, EAISOCKTYPE, "ai_socktype not supported")                           \
+  XX( 46, ESHUTDOWN, "cannot send after transport endpoint shutdown")         \
+  XX( 47, EEXIST, "file already exists")                                      \
+  XX( 48, ESRCH, "no such process")                                           \
+  XX( 49, ENAMETOOLONG, "name too long")                                      \
+  XX( 50, EPERM, "operation not permitted")                                   \
+  XX( 51, ELOOP, "too many symbolic links encountered")                       \
+  XX( 52, EXDEV, "cross-device link not permitted")                           \
+  XX( 53, ENOTEMPTY, "directory not empty")                                   \
+  XX( 54, ENOSPC, "no space left on device")                                  \
+  XX( 55, EIO, "i/o error")                                                   \
+  XX( 56, EROFS, "read-only file system")                                     \
+  XX( 57, ENODEV, "no such device")                                           \
+  XX( 58, ESPIPE, "invalid seek")                                             \
+  XX( 59, ECANCELED, "operation canceled")                                    \
 
 
 #define UV_ERRNO_GEN(val, name, s) UV_##name = val,
@@ -137,36 +134,39 @@ typedef enum {
 } uv_err_code;
 #undef UV_ERRNO_GEN
 
-#define UV_HANDLE_TYPE_MAP(XX)  \
-  XX(ASYNC, async)              \
-  XX(CHECK, check)              \
-  XX(FS_EVENT, fs_event)        \
-  XX(FS_POLL, fs_poll)          \
-  XX(IDLE, idle)                \
-  XX(NAMED_PIPE, pipe)          \
-  XX(POLL, poll)                \
-  XX(PREPARE, prepare)          \
-  XX(PROCESS, process)          \
-  XX(TCP, tcp)                  \
-  XX(TIMER, timer)              \
-  XX(TTY, tty)                  \
-  XX(UDP, udp)                  \
+#define UV_HANDLE_TYPE_MAP(XX)                                                \
+  XX(ASYNC, async)                                                            \
+  XX(CHECK, check)                                                            \
+  XX(FS_EVENT, fs_event)                                                      \
+  XX(FS_POLL, fs_poll)                                                        \
+  XX(HANDLE, handle)                                                          \
+  XX(IDLE, idle)                                                              \
+  XX(NAMED_PIPE, pipe)                                                        \
+  XX(POLL, poll)                                                              \
+  XX(PREPARE, prepare)                                                        \
+  XX(PROCESS, process)                                                        \
+  XX(STREAM, stream)                                                          \
+  XX(TCP, tcp)                                                                \
+  XX(TIMER, timer)                                                            \
+  XX(TTY, tty)                                                                \
+  XX(UDP, udp)                                                                \
+  XX(SIGNAL, signal)                                                          \
 
-#define UV_REQ_TYPE_MAP(XX)     \
-  XX(CONNECT, connect)          \
-  XX(WRITE, write)              \
-  XX(SHUTDOWN, shutdown)        \
-  XX(UDP_SEND, udp_send)        \
-  XX(FS, fs)                    \
-  XX(WORK, work)                \
-  XX(GETADDRINFO, getaddrinfo)  \
+#define UV_REQ_TYPE_MAP(XX)                                                   \
+  XX(REQ, req)                                                                \
+  XX(CONNECT, connect)                                                        \
+  XX(WRITE, write)                                                            \
+  XX(SHUTDOWN, shutdown)                                                      \
+  XX(UDP_SEND, udp_send)                                                      \
+  XX(FS, fs)                                                                  \
+  XX(WORK, work)                                                              \
+  XX(GETADDRINFO, getaddrinfo)                                                \
 
 typedef enum {
   UV_UNKNOWN_HANDLE = 0,
 #define XX(uc, lc) UV_##uc,
   UV_HANDLE_TYPE_MAP(XX)
 #undef XX
-  UV_ARES_TASK,
   UV_FILE,
   UV_HANDLE_TYPE_MAX
 } uv_handle_type;
@@ -183,7 +183,6 @@ typedef enum {
 
 /* Handle types. */
 typedef struct uv_loop_s uv_loop_t;
-typedef struct uv_ares_task_s uv_ares_task_t;
 typedef struct uv_err_s uv_err_t;
 typedef struct uv_handle_s uv_handle_t;
 typedef struct uv_stream_s uv_stream_t;
@@ -200,6 +199,7 @@ typedef struct uv_async_s uv_async_t;
 typedef struct uv_process_s uv_process_t;
 typedef struct uv_fs_event_s uv_fs_event_t;
 typedef struct uv_fs_poll_s uv_fs_poll_t;
+typedef struct uv_signal_s uv_signal_t;
 
 /* Request types. */
 typedef struct uv_req_s uv_req_t;
@@ -212,9 +212,29 @@ typedef struct uv_fs_s uv_fs_t;
 typedef struct uv_work_s uv_work_t;
 
 /* None of the above. */
-typedef struct uv_counters_s uv_counters_t;
 typedef struct uv_cpu_info_s uv_cpu_info_t;
 typedef struct uv_interface_address_s uv_interface_address_t;
+
+
+typedef enum {
+  UV_RUN_DEFAULT = 0,
+  UV_RUN_ONCE,
+  UV_RUN_NOWAIT
+} uv_run_mode;
+
+
+/*
+ * Returns the libuv version packed into a single integer. 8 bits are used for
+ * each component, with the patch number stored in the 8 least significant
+ * bits. E.g. for libuv 1.2.3 this would return 0x010203.
+ */
+UV_EXTERN unsigned int uv_version(void);
+
+/*
+ * Returns the libuv version number as a string. For non-release versions
+ * "-pre" is appended, so the version number could be "1.2.3-pre".
+ */
+UV_EXTERN const char* uv_version_string(void);
 
 
 /*
@@ -234,18 +254,26 @@ UV_EXTERN void uv_loop_delete(uv_loop_t*);
 UV_EXTERN uv_loop_t* uv_default_loop(void);
 
 /*
- * This function starts the event loop. It blocks until the reference count
- * of the loop drops to zero. Always returns zero.
+ * This function runs the event loop. It will act differently depending on the
+ * specified mode:
+ *  - UV_RUN_DEFAULT: Runs the event loop until the reference count drops to
+ *    zero. Always returns zero.
+ *  - UV_RUN_ONCE: Poll for new events once. Note that this function blocks if
+ *    there are no pending events. Returns zero when done (no active handles
+ *    or requests left), or non-zero if more events are expected (meaning you
+ *    should run the event loop again sometime in the future).
+ *  - UV_RUN_NOWAIT: Poll for new events once but don't block if there are no
+ *    pending events.
  */
-UV_EXTERN int uv_run(uv_loop_t*);
+UV_EXTERN int uv_run(uv_loop_t*, uv_run_mode mode);
 
 /*
- * Poll for new events once. Note that this function blocks if there are no
- * pending events. Returns zero when done (no active handles or requests left),
- * or non-zero if more events are expected (meaning you should call
- * uv_run_once() again sometime in the future).
+ * This function will stop the event loop by forcing uv_run to end
+ * as soon as possible, but not sooner than the next loop iteration.
+ * If this function was called before blocking for i/o, the loop won't
+ * block for i/o on this iteration.
  */
-UV_EXTERN int uv_run_once(uv_loop_t*);
+UV_EXTERN void uv_stop(uv_loop_t*);
 
 /*
  * Manually modify the event loop's reference count. Useful if the user wants
@@ -253,9 +281,53 @@ UV_EXTERN int uv_run_once(uv_loop_t*);
  */
 UV_EXTERN void uv_ref(uv_handle_t*);
 UV_EXTERN void uv_unref(uv_handle_t*);
+UV_EXTERN int uv_has_ref(const uv_handle_t*);
 
+/*
+ * Update the event loop's concept of "now". Libuv caches the current time
+ * at the start of the event loop tick in order to reduce the number of
+ * time-related system calls.
+ *
+ * You won't normally need to call this function unless you have callbacks
+ * that block the event loop for longer periods of time, where "longer" is
+ * somewhat subjective but probably on the order of a millisecond or more.
+ */
 UV_EXTERN void uv_update_time(uv_loop_t*);
-UV_EXTERN int64_t uv_now(uv_loop_t*);
+
+/*
+ * Return the current timestamp in milliseconds. The timestamp is cached at
+ * the start of the event loop tick, see |uv_update_time()| for details and
+ * rationale.
+ *
+ * The timestamp increases monotonically from some arbitrary point in time.
+ * Don't make assumptions about the starting point, you will only get
+ * disappointed.
+ *
+ * Use uv_hrtime() if you need sub-milliseond granularity.
+ */
+UV_EXTERN uint64_t uv_now(uv_loop_t*);
+
+/*
+ * Get backend file descriptor. Only kqueue, epoll and event ports are
+ * supported.
+ *
+ * This can be used in conjunction with `uv_run(loop, UV_RUN_NOWAIT)` to
+ * poll in one thread and run the event loop's event callbacks in another.
+ *
+ * Useful for embedding libuv's event loop in another event loop.
+ * See test/test-embed.c for an example.
+ *
+ * Note that embedding a kqueue fd in another kqueue pollset doesn't work on
+ * all platforms. It's not an error to add the fd but it never generates
+ * events.
+ */
+UV_EXTERN int uv_backend_fd(const uv_loop_t*);
+
+/*
+ * Get the poll timeout. The return value is in milliseconds, or -1 for no
+ * timeout.
+ */
+UV_EXTERN int uv_backend_timeout(const uv_loop_t*);
 
 
 /*
@@ -277,6 +349,8 @@ typedef uv_buf_t (*uv_alloc_cb)(uv_handle_t* handle, size_t suggested_size);
  * Trying to read from the stream again is undefined.
  *
  * The callee is responsible for freeing the buffer, libuv does not reuse it.
+ * The buffer may be a null buffer (where buf.base=NULL and buf.len=0) on EOF
+ * or error.
  */
 typedef void (*uv_read_cb)(uv_stream_t* stream, ssize_t nread, uv_buf_t buf);
 
@@ -304,10 +378,33 @@ typedef void (*uv_exit_cb)(uv_process_t*, int exit_status, int term_signal);
 typedef void (*uv_walk_cb)(uv_handle_t* handle, void* arg);
 typedef void (*uv_fs_cb)(uv_fs_t* req);
 typedef void (*uv_work_cb)(uv_work_t* req);
-typedef void (*uv_after_work_cb)(uv_work_t* req);
+typedef void (*uv_after_work_cb)(uv_work_t* req, int status);
 typedef void (*uv_getaddrinfo_cb)(uv_getaddrinfo_t* req,
                                   int status,
                                   struct addrinfo* res);
+
+typedef struct {
+  long tv_sec;
+  long tv_nsec;
+} uv_timespec_t;
+
+
+typedef struct {
+  uint64_t st_dev;
+  uint64_t st_mode;
+  uint64_t st_nlink;
+  uint64_t st_uid;
+  uint64_t st_gid;
+  uint64_t st_rdev;
+  uint64_t st_ino;
+  uint64_t st_size;
+  uint64_t st_blksize;
+  uint64_t st_blocks;
+  uv_timespec_t st_atim;
+  uv_timespec_t st_mtim;
+  uv_timespec_t st_ctim;
+} uv_stat_t;
+
 
 /*
 * This will be called repeatedly after the uv_fs_event_t is initialized.
@@ -320,8 +417,11 @@ typedef void (*uv_fs_event_cb)(uv_fs_event_t* handle, const char* filename,
 
 typedef void (*uv_fs_poll_cb)(uv_fs_poll_t* handle,
                               int status,
-                              const uv_statbuf_t* prev,
-                              const uv_statbuf_t* curr);
+                              const uv_stat_t* prev,
+                              const uv_stat_t* curr);
+
+typedef void (*uv_signal_cb)(uv_signal_t* handle, int signum);
+
 
 typedef enum {
   UV_LEAVE_GROUP = 0,
@@ -347,14 +447,14 @@ UV_EXTERN const char* uv_strerror(uv_err_t err);
 UV_EXTERN const char* uv_err_name(uv_err_t err);
 
 
-#define UV_REQ_FIELDS \
-  /* public */ \
-  void* data; \
-  /* private */ \
-  ngx_queue_t active_queue; \
-  UV_REQ_PRIVATE_FIELDS \
-  /* read-only */ \
-  uv_req_type type; \
+#define UV_REQ_FIELDS                                                         \
+  /* public */                                                                \
+  void* data;                                                                 \
+  /* read-only */                                                             \
+  uv_req_type type;                                                           \
+  /* private */                                                               \
+  void* active_queue[2];                                                      \
+  UV_REQ_PRIVATE_FIELDS                                                       \
 
 /* Abstract base class of all requests. */
 struct uv_req_s {
@@ -386,15 +486,14 @@ struct uv_shutdown_s {
 
 
 #define UV_HANDLE_FIELDS                                                      \
-  /* read-only */                                                             \
-  uv_loop_t* loop;                                                            \
   /* public */                                                                \
   uv_close_cb close_cb;                                                       \
   void* data;                                                                 \
   /* read-only */                                                             \
+  uv_loop_t* loop;                                                            \
   uv_handle_type type;                                                        \
   /* private */                                                               \
-  ngx_queue_t handle_queue;                                                   \
+  void* handle_queue[2];                                                      \
   UV_HANDLE_PRIVATE_FIELDS                                                    \
 
 /* The abstract base class of all handles.  */
@@ -433,6 +532,10 @@ UV_EXTERN void uv_walk(uv_loop_t* loop, uv_walk_cb walk_cb, void* arg);
  * Note that handles that wrap file descriptors are closed immediately but
  * close_cb will still be deferred to the next iteration of the event loop.
  * It gives you a chance to free up any resources associated with the handle.
+ *
+ * In-progress requests, like uv_connect_t or uv_write_t, are cancelled and
+ * have their callbacks called asynchronously with status=-1 and the error code
+ * set to UV_ECANCELED.
  */
 UV_EXTERN void uv_close(uv_handle_t* handle, uv_close_cb close_cb);
 
@@ -461,13 +564,13 @@ UV_EXTERN size_t uv_strlcpy(char* dst, const char* src, size_t size);
 UV_EXTERN size_t uv_strlcat(char* dst, const char* src, size_t size);
 
 
-#define UV_STREAM_FIELDS \
-  /* number of bytes queued for writing */ \
-  size_t write_queue_size; \
-  uv_alloc_cb alloc_cb; \
-  uv_read_cb read_cb; \
-  uv_read2_cb read2_cb; \
-  /* private */ \
+#define UV_STREAM_FIELDS                                                      \
+  /* number of bytes queued for writing */                                    \
+  size_t write_queue_size;                                                    \
+  uv_alloc_cb alloc_cb;                                                       \
+  uv_read_cb read_cb;                                                         \
+  uv_read2_cb read2_cb;                                                       \
+  /* private */                                                               \
   UV_STREAM_PRIVATE_FIELDS
 
 /*
@@ -500,9 +603,9 @@ UV_EXTERN int uv_accept(uv_stream_t* server, uv_stream_t* client);
 
 /*
  * Read data from an incoming stream. The callback will be made several
- * several times until there is no more data to read or uv_read_stop is
- * called. When we've reached EOF nread will be set to -1 and the error is
- * set to UV_EOF. When nread == -1 the buf parameter might not point to a
+ * times until there is no more data to read or uv_read_stop is called.
+ * When we've reached EOF nread will be set to -1 and the error is set
+ * to UV_EOF. When nread == -1 the buf parameter might not point to a
  * valid buffer; in that case buf.len and buf.base are both set to 0.
  * Note that nread might also be 0, which does *not* indicate an error or
  * eof; it happens when libuv requested a buffer through the alloc callback
@@ -534,9 +637,12 @@ UV_EXTERN int uv_read2_start(uv_stream_t*, uv_alloc_cb alloc_cb,
  *     { .base = "4", .len = 1 }
  *   };
  *
+ *   uv_write_t req1;
+ *   uv_write_t req2;
+ *
  *   // writes "1234"
- *   uv_write(req, stream, a, 2);
- *   uv_write(req, stream, b, 2);
+ *   uv_write(&req1, stream, a, 2);
+ *   uv_write(&req2, stream, b, 2);
  *
  */
 UV_EXTERN int uv_write(uv_write_t* req, uv_stream_t* handle,
@@ -592,26 +698,33 @@ struct uv_tcp_s {
 
 UV_EXTERN int uv_tcp_init(uv_loop_t*, uv_tcp_t* handle);
 
+/*
+ * Opens an existing file descriptor or SOCKET as a tcp handle.
+ */
+UV_EXTERN int uv_tcp_open(uv_tcp_t* handle, uv_os_sock_t sock);
+
 /* Enable/disable Nagle's algorithm. */
 UV_EXTERN int uv_tcp_nodelay(uv_tcp_t* handle, int enable);
 
-/* Enable/disable TCP keep-alive.
+/*
+ * Enable/disable TCP keep-alive.
  *
- * `ms` is the initial delay in seconds, ignored when `enable` is zero.
+ * `delay` is the initial delay in seconds, ignored when `enable` is zero.
  */
-UV_EXTERN int uv_tcp_keepalive(uv_tcp_t* handle, int enable,
-    unsigned int delay);
+UV_EXTERN int uv_tcp_keepalive(uv_tcp_t* handle,
+                               int enable,
+                               unsigned int delay);
 
 /* Enable IPv6 only sockets and disable IPv4 mapping */
 UV_EXTERN int uv_tcp_v6only(uv_tcp_t* handle, int enable);
 
 /*
- * This setting applies to Windows only.
  * Enable/disable simultaneous asynchronous accept requests that are
  * queued by the operating system when listening for new tcp connections.
  * This setting is used to tune a tcp server for the desired performance.
  * Having simultaneous accepts can significantly improve the rate of
- * accepting connections (which is why it is enabled by default).
+ * accepting connections (which is why it is enabled by default) but
+ * may lead to uneven load distribution in multi-process setups.
  */
 UV_EXTERN int uv_tcp_simultaneous_accepts(uv_tcp_t* handle, int enable);
 
@@ -698,6 +811,17 @@ struct uv_udp_send_s {
  * Returns 0 on success.
  */
 UV_EXTERN int uv_udp_init(uv_loop_t*, uv_udp_t* handle);
+
+/*
+ * Opens an existing file descriptor or SOCKET as a udp handle.
+ *
+ * Unix only:
+ *  The only requirement of the sock argument is that it follows the
+ *  datagram contract (works in unconnected mode, supports sendmsg()/recvmsg(),
+ *  etc.). In other words, other datagram-type sockets like raw sockets or
+ *  netlink sockets can also be passed to this function.
+ */
+UV_EXTERN int uv_udp_open(uv_udp_t* handle, uv_os_sock_t sock);
 
 /*
  * Bind to a IPv4 address and port.
@@ -923,8 +1047,8 @@ UV_EXTERN uv_handle_type uv_guess_handle(uv_file file);
 struct uv_pipe_s {
   UV_HANDLE_FIELDS
   UV_STREAM_FIELDS
-  UV_PIPE_PRIVATE_FIELDS
   int ipc; /* non-zero if this pipe is used for passing handles */
+  UV_PIPE_PRIVATE_FIELDS
 };
 
 /*
@@ -936,7 +1060,7 @@ UV_EXTERN int uv_pipe_init(uv_loop_t*, uv_pipe_t* handle, int ipc);
 /*
  * Opens an existing file descriptor or HANDLE as a pipe.
  */
-UV_EXTERN void uv_pipe_open(uv_pipe_t*, uv_file file);
+UV_EXTERN int uv_pipe_open(uv_pipe_t*, uv_file file);
 
 UV_EXTERN int uv_pipe_bind(uv_pipe_t* handle, const char* name);
 
@@ -1022,9 +1146,8 @@ UV_EXTERN int uv_poll_stop(uv_poll_t* handle);
 /*
  * uv_prepare_t is a subclass of uv_handle_t.
  *
- * libev wrapper. Every active prepare handle gets its callback called
- * exactly once per loop iteration, just before the system blocks to wait
- * for completed i/o.
+ * Every active prepare handle gets its callback called exactly once per loop
+ * iteration, just before the system blocks to wait for completed i/o.
  */
 struct uv_prepare_s {
   UV_HANDLE_FIELDS
@@ -1041,8 +1164,8 @@ UV_EXTERN int uv_prepare_stop(uv_prepare_t* prepare);
 /*
  * uv_check_t is a subclass of uv_handle_t.
  *
- * libev wrapper. Every active check handle gets its callback called exactly
- * once per loop iteration, just after the system returns from blocking.
+ * Every active check handle gets its callback called exactly once per loop
+ * iteration, just after the system returns from blocking.
  */
 struct uv_check_s {
   UV_HANDLE_FIELDS
@@ -1059,10 +1182,10 @@ UV_EXTERN int uv_check_stop(uv_check_t* check);
 /*
  * uv_idle_t is a subclass of uv_handle_t.
  *
- * libev wrapper. Every active idle handle gets its callback called
- * repeatedly until it is stopped. This happens after all other types of
- * callbacks are processed.  When there are multiple "idle" handles active,
- * their callbacks are called in turn.
+ * Every active idle handle gets its callback called repeatedly until it is
+ * stopped. This happens after all other types of callbacks are processed.
+ * When there are multiple "idle" handles active, their callbacks are called
+ * in turn.
  */
 struct uv_idle_s {
   UV_HANDLE_FIELDS
@@ -1079,12 +1202,11 @@ UV_EXTERN int uv_idle_stop(uv_idle_t* idle);
 /*
  * uv_async_t is a subclass of uv_handle_t.
  *
- * libev wrapper. uv_async_send wakes up the event
- * loop and calls the async handle's callback There is no guarantee that
- * every uv_async_send call leads to exactly one invocation of the callback;
- * The only guarantee is that the callback function is  called at least once
- * after the call to async_send. Unlike all other libuv functions,
- * uv_async_send can be called from another thread.
+ * uv_async_send wakes up the event loop and calls the async handle's callback.
+ * There is no guarantee that every uv_async_send call leads to exactly one
+ * invocation of the callback; the only guarantee is that the callback function
+ * is called at least once after the call to async_send. Unlike all other
+ * libuv functions, uv_async_send can be called from another thread.
  */
 struct uv_async_s {
   UV_HANDLE_FIELDS
@@ -1105,45 +1227,46 @@ UV_EXTERN int uv_async_send(uv_async_t* async);
 /*
  * uv_timer_t is a subclass of uv_handle_t.
  *
- * Wraps libev's ev_timer watcher. Used to get woken up at a specified time
- * in the future.
+ * Used to get woken up at a specified time in the future.
  */
 struct uv_timer_s {
   UV_HANDLE_FIELDS
   UV_TIMER_PRIVATE_FIELDS
 };
 
-UV_EXTERN int uv_timer_init(uv_loop_t*, uv_timer_t* timer);
+UV_EXTERN int uv_timer_init(uv_loop_t*, uv_timer_t* handle);
 
-UV_EXTERN int uv_timer_start(uv_timer_t* timer, uv_timer_cb cb,
-    int64_t timeout, int64_t repeat);
+/*
+ * Start the timer. `timeout` and `repeat` are in milliseconds.
+ *
+ * If timeout is zero, the callback fires on the next tick of the event loop.
+ *
+ * If repeat is non-zero, the callback fires first after timeout milliseconds
+ * and then repeatedly after repeat milliseconds.
+ */
+UV_EXTERN int uv_timer_start(uv_timer_t* handle,
+                             uv_timer_cb cb,
+                             uint64_t timeout,
+                             uint64_t repeat);
 
-UV_EXTERN int uv_timer_stop(uv_timer_t* timer);
+UV_EXTERN int uv_timer_stop(uv_timer_t* handle);
 
 /*
  * Stop the timer, and if it is repeating restart it using the repeat value
  * as the timeout. If the timer has never been started before it returns -1 and
  * sets the error to UV_EINVAL.
  */
-UV_EXTERN int uv_timer_again(uv_timer_t* timer);
+UV_EXTERN int uv_timer_again(uv_timer_t* handle);
 
 /*
- * Set the repeat value. Note that if the repeat value is set from a timer
- * callback it does not immediately take effect. If the timer was non-repeating
- * before, it will have been stopped. If it was repeating, then the old repeat
- * value will have been used to schedule the next timeout.
+ * Set the repeat value in milliseconds. Note that if the repeat value is set
+ * from a timer callback it does not immediately take effect. If the timer was
+ * non-repeating before, it will have been stopped. If it was repeating, then
+ * the old repeat value will have been used to schedule the next timeout.
  */
-UV_EXTERN void uv_timer_set_repeat(uv_timer_t* timer, int64_t repeat);
+UV_EXTERN void uv_timer_set_repeat(uv_timer_t* handle, uint64_t repeat);
 
-UV_EXTERN int64_t uv_timer_get_repeat(uv_timer_t* timer);
-
-
-/* c-ares integration initialize and terminate */
-UV_EXTERN  int uv_ares_init_options(uv_loop_t*,
-    ares_channel *channelptr, struct ares_options *options, int optmask);
-
-/* TODO remove the loop argument from this function? */
-UV_EXTERN void uv_ares_destroy(uv_loop_t*, ares_channel channel);
+UV_EXTERN uint64_t uv_timer_get_repeat(const uv_timer_t* handle);
 
 
 /*
@@ -1241,14 +1364,6 @@ typedef struct uv_process_options_s {
    */
   unsigned int flags;
   /*
-   * Libuv can change the child process' user/group id. This happens only when
-   * the appropriate bits are set in the flags fields. This is not supported on
-   * windows; uv_spawn() will fail and set the error to UV_ENOTSUP.
-   */
-  uv_uid_t uid;
-  uv_gid_t gid;
-
-  /*
    * The `stdio` field points to an array of uv_stdio_container_t structs that
    * describe the file descriptors that will be made available to the child
    * process. The convention is that stdio[0] points to stdin, fd 1 is used for
@@ -1259,6 +1374,13 @@ typedef struct uv_process_options_s {
    */
   int stdio_count;
   uv_stdio_container_t* stdio;
+  /*
+   * Libuv can change the child process' user/group id. This happens only when
+   * the appropriate bits are set in the flags fields. This is not supported on
+   * windows; uv_spawn() will fail and set the error to UV_ENOTSUP.
+   */
+  uv_uid_t uid;
+  uv_gid_t gid;
 } uv_process_options_t;
 
 /*
@@ -1290,7 +1412,13 @@ enum uv_process_flags {
    * parent's event loop alive unless the parent process calls uv_unref() on
    * the child's process handle.
    */
-  UV_PROCESS_DETACHED = (1 << 3)
+  UV_PROCESS_DETACHED = (1 << 3),
+  /*
+   * Hide the subprocess console window that would normally be created. This
+   * option is only meaningful on Windows systems. On unix it is silently
+   * ignored.
+   */
+  UV_PROCESS_WINDOWS_HIDE = (1 << 4)
 };
 
 /*
@@ -1334,6 +1462,30 @@ struct uv_work_s {
 UV_EXTERN int uv_queue_work(uv_loop_t* loop, uv_work_t* req,
     uv_work_cb work_cb, uv_after_work_cb after_work_cb);
 
+/* Cancel a pending request. Fails if the request is executing or has finished
+ * executing.
+ *
+ * Returns 0 on success, -1 on error. The loop error code is not touched.
+ *
+ * Only cancellation of uv_fs_t, uv_getaddrinfo_t and uv_work_t requests is
+ * currently supported.
+ *
+ * Cancelled requests have their callbacks invoked some time in the future.
+ * It's _not_ safe to free the memory associated with the request until your
+ * callback is called.
+ *
+ * Here is how cancellation is reported to your callback:
+ *
+ * - A uv_fs_t request has its req->errorno field set to UV_ECANCELED.
+ *
+ * - A uv_work_t or uv_getaddrinfo_t request has its callback invoked with
+ *   status == -1 and uv_last_error(loop).code == UV_ECANCELED.
+ *
+ * This function is currently only implemented on UNIX platforms. On Windows,
+ * it always returns -1.
+ */
+UV_EXTERN int uv_cancel(uv_req_t* req);
+
 
 struct uv_cpu_info_s {
   char* model;
@@ -1354,6 +1506,10 @@ struct uv_interface_address_s {
     struct sockaddr_in address4;
     struct sockaddr_in6 address6;
   } address;
+  union {
+    struct sockaddr_in netmask4;
+    struct sockaddr_in6 netmask6;
+  } netmask;
 };
 
 UV_EXTERN char** uv_setup_args(int argc, char** argv);
@@ -1430,8 +1586,9 @@ struct uv_fs_s {
   uv_fs_cb cb;
   ssize_t result;
   void* ptr;
-  char* path;
-  int errorno;
+  const char* path;
+  uv_err_code errorno;
+  uv_stat_t statbuf;  /* Stores the result of uv_fs_stat and uv_fs_fstat. */
   UV_FS_PRIVATE_FIELDS
 };
 
@@ -1544,14 +1701,7 @@ struct uv_fs_event_s {
 struct uv_fs_poll_s {
   UV_HANDLE_FIELDS
   /* Private, don't touch. */
-  int busy_polling; /* TODO(bnoordhuis) Fold into flags field. */
-  unsigned int interval;
-  uint64_t start_time;
-  char* path;
-  uv_fs_poll_cb poll_cb;
-  uv_timer_t timer_handle;
-  uv_fs_t* fs_req;
-  uv_statbuf_t statbuf;
+  void* poll_ctx;
 };
 
 UV_EXTERN int uv_fs_poll_init(uv_loop_t* loop, uv_fs_poll_t* handle);
@@ -1565,7 +1715,7 @@ UV_EXTERN int uv_fs_poll_init(uv_loop_t* loop, uv_fs_poll_t* handle);
  * or the error reason changes).
  *
  * When `status == 0`, your callback receives pointers to the old and new
- * `uv_statbuf_t` structs. They are valid for the duration of the callback
+ * `uv_stat_t` structs. They are valid for the duration of the callback
  * only!
  *
  * For maximum portability, use multi-second intervals. Sub-second intervals
@@ -1578,10 +1728,62 @@ UV_EXTERN int uv_fs_poll_start(uv_fs_poll_t* handle,
 
 UV_EXTERN int uv_fs_poll_stop(uv_fs_poll_t* handle);
 
+
 /*
- * Gets load avg
+ * UNIX signal handling on a per-event loop basis. The implementation is not
+ * ultra efficient so don't go creating a million event loops with a million
+ * signal watchers.
+ *
+ * Note to Linux users: SIGRT0 and SIGRT1 (signals 32 and 33) are used by the
+ * NPTL pthreads library to manage threads. Installing watchers for those
+ * signals will lead to unpredictable behavior and is strongly discouraged.
+ * Future versions of libuv may simply reject them.
+ *
+ * Some signal support is available on Windows:
+ *
+ *   SIGINT is normally delivered when the user presses CTRL+C. However, like
+ *   on Unix, it is not generated when terminal raw mode is enabled.
+ *
+ *   SIGBREAK is delivered when the user pressed CTRL+BREAK.
+ *
+ *   SIGHUP is generated when the user closes the console window. On SIGHUP the
+ *   program is given approximately 10 seconds to perform cleanup. After that
+ *   Windows will unconditionally terminate it.
+ *
+ *   SIGWINCH is raised whenever libuv detects that the console has been
+ *   resized. SIGWINCH is emulated by libuv when the program uses an uv_tty_t
+ *   handle to write to the console. SIGWINCH may not always be delivered in a
+ *   timely manner; libuv will only detect size changes when the cursor is
+ *   being moved. When a readable uv_tty_handle is used in raw mode, resizing
+ *   the console buffer will also trigger a SIGWINCH signal.
+ *
+ * Watchers for other signals can be successfully created, but these signals
+ * are never generated. These signals are: SIGILL, SIGABRT, SIGFPE, SIGSEGV,
+ * SIGTERM and SIGKILL.
+ *
+ * Note that calls to raise() or abort() to programmatically raise a signal are
+ * not detected by libuv; these will not trigger a signal watcher.
+ */
+struct uv_signal_s {
+  UV_HANDLE_FIELDS
+  uv_signal_cb signal_cb;
+  int signum;
+  UV_SIGNAL_PRIVATE_FIELDS
+};
+
+UV_EXTERN int uv_signal_init(uv_loop_t* loop, uv_signal_t* handle);
+
+UV_EXTERN int uv_signal_start(uv_signal_t* handle,
+                              uv_signal_cb signal_cb,
+                              int signum);
+
+UV_EXTERN int uv_signal_stop(uv_signal_t* handle);
+
+
+/*
+ * Gets load average.
  * See: http://en.wikipedia.org/wiki/Load_(computing)
- * (Returns [0,0,0] for windows and cygwin)
+ * Returns [0,0,0] on Windows.
  */
 UV_EXTERN void uv_loadavg(double avg[3]);
 
@@ -1606,7 +1808,14 @@ enum uv_fs_event_flags {
    * regular interval.
    * This flag is currently not implemented yet on any backend.
    */
-  UV_FS_EVENT_STAT = 2
+  UV_FS_EVENT_STAT = 2,
+
+  /*
+   * By default, event watcher, when watching directory, is not registering
+   * (is ignoring) changes in it's subdirectories.
+   * This flag will override this behaviour on platforms that support it.
+   */
+  UV_FS_EVENT_RECURSIVE = 3
 };
 
 
@@ -1622,6 +1831,12 @@ UV_EXTERN struct sockaddr_in6 uv_ip6_addr(const char* ip, int port);
 /* Convert binary addresses to strings */
 UV_EXTERN int uv_ip4_name(struct sockaddr_in* src, char* dst, size_t size);
 UV_EXTERN int uv_ip6_name(struct sockaddr_in6* src, char* dst, size_t size);
+
+/* Cross-platform IPv6-capable implementation of the 'standard' inet_ntop */
+/* and inet_pton functions. On success they return UV_OK. If an error */
+/* the target of the `dst` pointer is unmodified. */
+UV_EXTERN uv_err_t uv_inet_ntop(int af, const void* src, char* dst, size_t size);
+UV_EXTERN uv_err_t uv_inet_pton(int af, const char* src, void* dst);
 
 /* Gets the executable path */
 UV_EXTERN int uv_exepath(char* buffer, size_t* size);
@@ -1651,7 +1866,7 @@ UV_EXTERN extern uint64_t uv_hrtime(void);
 /*
  * Disables inheritance for file descriptors / handles that this process
  * inherited from its parent. The effect is that child processes spawned by
- * this proces don't accidently inherit these handles.
+ * this process don't accidentally inherit these handles.
  *
  * It is recommended to call this function as early in your program as possible,
  * before the inherited file descriptors can be closed or duplicated.
@@ -1671,7 +1886,7 @@ UV_EXTERN void uv_disable_stdio_inheritance(void);
 UV_EXTERN int uv_dlopen(const char* filename, uv_lib_t* lib);
 
 /*
- * Close the shared libary.
+ * Close the shared library.
  */
 UV_EXTERN void uv_dlclose(uv_lib_t* lib);
 
@@ -1717,6 +1932,34 @@ UV_EXTERN void uv_sem_post(uv_sem_t* sem);
 UV_EXTERN void uv_sem_wait(uv_sem_t* sem);
 UV_EXTERN int uv_sem_trywait(uv_sem_t* sem);
 
+/*
+ * Same goes for the condition variable functions.
+ */
+UV_EXTERN int uv_cond_init(uv_cond_t* cond);
+UV_EXTERN void uv_cond_destroy(uv_cond_t* cond);
+UV_EXTERN void uv_cond_signal(uv_cond_t* cond);
+UV_EXTERN void uv_cond_broadcast(uv_cond_t* cond);
+/* Waits on a condition variable without a timeout.
+ *
+ * Note:
+ * 1. callers should be prepared to deal with spurious wakeups.
+ */
+UV_EXTERN void uv_cond_wait(uv_cond_t* cond, uv_mutex_t* mutex);
+/* Waits on a condition variable with a timeout in nano seconds.
+ * Returns 0 for success or -1 on timeout, * aborts when other errors happen.
+ *
+ * Note:
+ * 1. callers should be prepared to deal with spurious wakeups.
+ * 2. the granularity of timeout on Windows is never less than one millisecond.
+ * 3. uv_cond_timedwait takes a relative timeout, not an absolute time.
+ */
+UV_EXTERN int uv_cond_timedwait(uv_cond_t* cond, uv_mutex_t* mutex,
+    uint64_t timeout);
+
+UV_EXTERN int uv_barrier_init(uv_barrier_t* barrier, unsigned int count);
+UV_EXTERN void uv_barrier_destroy(uv_barrier_t* barrier);
+UV_EXTERN void uv_barrier_wait(uv_barrier_t* barrier);
+
 /* Runs a function once and only once. Concurrent calls to uv_once() with the
  * same guard will block all callers except one (it's unspecified which one).
  * The guard should be initialized statically with the UV_ONCE_INIT macro.
@@ -1725,79 +1968,33 @@ UV_EXTERN void uv_once(uv_once_t* guard, void (*callback)(void));
 
 UV_EXTERN int uv_thread_create(uv_thread_t *tid,
     void (*entry)(void *arg), void *arg);
+UV_EXTERN unsigned long uv_thread_self(void);
 UV_EXTERN int uv_thread_join(uv_thread_t *tid);
 
-/* the presence of these unions force similar struct layout */
+/* The presence of these unions force similar struct layout. */
+#define XX(_, name) uv_ ## name ## _t name;
 union uv_any_handle {
-  uv_handle_t handle;
-  uv_stream_t stream;
-  uv_tcp_t tcp;
-  uv_pipe_t pipe;
-  uv_prepare_t prepare;
-  uv_check_t check;
-  uv_idle_t idle;
-  uv_async_t async;
-  uv_timer_t timer;
-  uv_fs_event_t fs_event;
-  uv_fs_poll_t fs_poll;
-  uv_poll_t poll;
-  uv_process_t process;
-  uv_tty_t tty;
-  uv_udp_t udp;
+  UV_HANDLE_TYPE_MAP(XX)
 };
 
 union uv_any_req {
-  uv_req_t req;
-  uv_write_t write;
-  uv_connect_t connect;
-  uv_shutdown_t shutdown;
-  uv_fs_t fs_req;
-  uv_work_t work_req;
-  uv_udp_send_t udp_send_req;
-  uv_getaddrinfo_t getaddrinfo_req;
+  UV_REQ_TYPE_MAP(XX)
 };
-
-
-struct uv_counters_s {
-  uint64_t async_init;
-  uint64_t check_init;
-  uint64_t eio_init;
-  uint64_t fs_event_init;
-  uint64_t fs_poll_init;
-  uint64_t handle_init;
-  uint64_t idle_init;
-  uint64_t pipe_init;
-  uint64_t poll_init;
-  uint64_t prepare_init;
-  uint64_t process_init;
-  uint64_t req_init;
-  uint64_t stream_init;
-  uint64_t tcp_init;
-  uint64_t timer_init;
-  uint64_t tty_init;
-  uint64_t udp_init;
-};
+#undef XX
 
 
 struct uv_loop_s {
-  UV_LOOP_PRIVATE_FIELDS
-  ares_channel channel;
-  /* While the channel is active this timer is called once per second to be */
-  /* sure that we're always calling ares_process. See the warning above the */
-  /* definition of ares_timeout(). */
-  uv_timer_t ares_timer; \
-  /* RB_HEAD(uv__ares_tasks, uv_ares_task_t) */
-  struct uv__ares_tasks { uv_ares_task_t* rbh_root; } ares_handles;
-  /* Diagnostic counters */
-  uv_counters_t counters;
+  /* User data - use this for whatever. */
+  void* data;
   /* The last error */
   uv_err_t last_err;
   /* Loop reference counting */
   unsigned int active_handles;
-  ngx_queue_t handle_queue;
-  ngx_queue_t active_reqs;
-  /* User data - use this for whatever. */
-  void* data;
+  void* handle_queue[2];
+  void* active_reqs[2];
+  /* Internal flag to signal loop stop */
+  unsigned int stop_flag;
+  UV_LOOP_PRIVATE_FIELDS
 };
 
 
@@ -1816,6 +2013,7 @@ struct uv_loop_s {
 #undef UV_FS_REQ_PRIVATE_FIELDS
 #undef UV_WORK_PRIVATE_FIELDS
 #undef UV_FS_EVENT_PRIVATE_FIELDS
+#undef UV_SIGNAL_PRIVATE_FIELDS
 #undef UV_LOOP_PRIVATE_FIELDS
 #undef UV_LOOP_PRIVATE_PLATFORM_FIELDS
 

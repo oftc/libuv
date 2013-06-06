@@ -19,155 +19,186 @@
 # IN THE SOFTWARE.
 
 E=
-CSTDFLAG=--std=c89 -pedantic -Wall -Wextra -Wno-unused-parameter
-CFLAGS += -g
-CPPFLAGS += -Isrc -Isrc/unix/ev
-LINKFLAGS=-lm
+CFLAGS += -g -Wall -Wextra -Wno-unused-parameter
+CPPFLAGS += -I$(SRCDIR)/src
+LDFLAGS=-lm
 
 CPPFLAGS += -D_LARGEFILE_SOURCE
 CPPFLAGS += -D_FILE_OFFSET_BITS=64
+
+RUNNER_SRC=test/runner-unix.c
+RUNNER_CFLAGS=$(CFLAGS) -I$(SRCDIR)/test
+RUNNER_LDFLAGS=-L"$(CURDIR)" -luv
+
+HAVE_DTRACE=
+DTRACE_OBJS=
+DTRACE_HEADER=
 
 OBJS += src/unix/async.o
 OBJS += src/unix/core.o
 OBJS += src/unix/dl.o
 OBJS += src/unix/error.o
 OBJS += src/unix/fs.o
+OBJS += src/unix/getaddrinfo.o
 OBJS += src/unix/loop.o
 OBJS += src/unix/loop-watcher.o
 OBJS += src/unix/pipe.o
 OBJS += src/unix/poll.o
 OBJS += src/unix/process.o
+OBJS += src/unix/signal.o
 OBJS += src/unix/stream.o
 OBJS += src/unix/tcp.o
 OBJS += src/unix/thread.o
+OBJS += src/unix/threadpool.o
 OBJS += src/unix/timer.o
 OBJS += src/unix/tty.o
 OBJS += src/unix/udp.o
+OBJS += src/fs-poll.o
+OBJS += src/uv-common.o
+OBJS += src/inet.o
+OBJS += src/version.o
 
-ifeq (SunOS,$(uname_S))
-EV_CONFIG=config_sunos.h
-EIO_CONFIG=config_sunos.h
-CPPFLAGS += -Isrc/ares/config_sunos -D__EXTENSIONS__ -D_XOPEN_SOURCE=500
-LINKFLAGS+=-lsocket -lnsl -lkstat
+ifeq (sunos,$(PLATFORM))
+HAVE_DTRACE=1
+CPPFLAGS += -D__EXTENSIONS__ -D_XOPEN_SOURCE=500
+LDFLAGS+=-lkstat -lnsl -lsendfile -lsocket
+# Library dependencies are not transitive.
 OBJS += src/unix/sunos.o
+OBJS += src/unix/dtrace.o
+DTRACE_OBJS += src/unix/core.o
 endif
 
-ifeq (Darwin,$(uname_S))
-EV_CONFIG=config_darwin.h
-EIO_CONFIG=config_darwin.h
-CPPFLAGS += -D_DARWIN_USE_64_BIT_INODE=1 -Isrc/ares/config_darwin
-LINKFLAGS+=-framework CoreServices
+ifeq (aix,$(PLATFORM))
+CPPFLAGS += -D_ALL_SOURCE -D_XOPEN_SOURCE=500
+LDFLAGS+= -lperfstat
+OBJS += src/unix/aix.o
+endif
+
+ifeq (darwin,$(PLATFORM))
+HAVE_DTRACE=1
+# dtrace(1) probes contain dollar signs on OS X. Mute the warnings they
+# generate but only when CC=clang, -Wno-dollar-in-identifier-extension
+# is a clang extension.
+ifeq (__clang__,$(shell sh -c "$(CC) -dM -E - </dev/null | grep -ow __clang__"))
+CFLAGS += -Wno-dollar-in-identifier-extension
+endif
+CPPFLAGS += -D_DARWIN_USE_64_BIT_INODE=1
+LDFLAGS += -framework Foundation \
+           -framework CoreServices \
+           -framework ApplicationServices
+SOEXT = dylib
 OBJS += src/unix/darwin.o
 OBJS += src/unix/kqueue.o
+OBJS += src/unix/fsevents.o
+OBJS += src/unix/proctitle.o
+OBJS += src/unix/darwin-proctitle.o
 endif
 
-ifeq (Linux,$(uname_S))
-EV_CONFIG=config_linux.h
-EIO_CONFIG=config_linux.h
-CSTDFLAG += -D_GNU_SOURCE
-CPPFLAGS += -Isrc/ares/config_linux
-LINKFLAGS+=-ldl -lrt
-OBJS += src/unix/linux/linux-core.o \
-        src/unix/linux/inotify.o    \
-        src/unix/linux/syscalls.o
+ifeq (linux,$(PLATFORM))
+CFLAGS += -D_GNU_SOURCE
+LDFLAGS+=-ldl -lrt
+RUNNER_CFLAGS += -D_GNU_SOURCE
+OBJS += src/unix/linux-core.o \
+        src/unix/linux-inotify.o \
+        src/unix/linux-syscalls.o \
+        src/unix/proctitle.o
 endif
 
-ifeq (FreeBSD,$(uname_S))
-EV_CONFIG=config_freebsd.h
-EIO_CONFIG=config_freebsd.h
-CPPFLAGS += -Isrc/ares/config_freebsd
-LINKFLAGS+=-lkvm
+ifeq (android,$(PLATFORM))
+CFLAGS += -D_GNU_SOURCE
+LDFLAGS+=-ldl -lrt
+RUNNER_CFLAGS += -D_GNU_SOURCE
+OBJS += src/unix/linux-core.o \
+        src/unix/linux-inotify.o \
+        src/unix/linux-syscalls.o \
+        src/unix/proctitle.o
+else
+CFLAGS += -std=c89
+endif
+
+ifeq (freebsd,$(PLATFORM))
+HAVE_DTRACE=1
+LDFLAGS+=-lkvm
 OBJS += src/unix/freebsd.o
 OBJS += src/unix/kqueue.o
 endif
 
-ifeq (DragonFly,$(uname_S))
-EV_CONFIG=config_freebsd.h
-EIO_CONFIG=config_freebsd.h
-CPPFLAGS += -Isrc/ares/config_freebsd
-LINKFLAGS+=
+ifeq (dragonfly,$(PLATFORM))
+LDFLAGS+=-lkvm
 OBJS += src/unix/freebsd.o
 OBJS += src/unix/kqueue.o
 endif
 
-ifeq (NetBSD,$(uname_S))
-EV_CONFIG=config_netbsd.h
-EIO_CONFIG=config_netbsd.h
-CPPFLAGS += -Isrc/ares/config_netbsd
-LINKFLAGS+=
+ifeq (netbsd,$(PLATFORM))
+LDFLAGS+=-lkvm
 OBJS += src/unix/netbsd.o
 OBJS += src/unix/kqueue.o
 endif
 
-ifeq (OpenBSD,$(uname_S))
-EV_CONFIG=config_openbsd.h
-EIO_CONFIG=config_openbsd.h
-CPPFLAGS += -Isrc/ares/config_openbsd
-LINKFLAGS+=-lkvm
+ifeq (openbsd,$(PLATFORM))
+LDFLAGS+=-lkvm
 OBJS += src/unix/openbsd.o
 OBJS += src/unix/kqueue.o
 endif
 
-ifneq (,$(findstring CYGWIN,$(uname_S)))
-EV_CONFIG=config_cygwin.h
-EIO_CONFIG=config_cygwin.h
-# We drop the --std=c89, it hides CLOCK_MONOTONIC on cygwin
-CSTDFLAG = -D_GNU_SOURCE
-CPPFLAGS += -Isrc/ares/config_cygwin
-LINKFLAGS+=
-OBJS += src/unix/cygwin.o
-endif
-
-# Need _GNU_SOURCE for strdup?
-RUNNER_CFLAGS=$(CFLAGS) -D_GNU_SOURCE
-RUNNER_LINKFLAGS=$(LINKFLAGS)
-
-ifeq (SunOS,$(uname_S))
-RUNNER_LINKFLAGS += -pthreads
+ifeq (sunos,$(PLATFORM))
+RUNNER_LDFLAGS += -pthreads
 else
-RUNNER_LINKFLAGS += -pthread
+ifneq (android, $(PLATFORM))
+RUNNER_LDFLAGS += -pthread
+endif
 endif
 
-RUNNER_LIBS=
-RUNNER_SRC=test/runner-unix.c
+ifeq ($(HAVE_DTRACE), 1)
+DTRACE_HEADER = src/unix/uv-dtrace.h
+CPPFLAGS += -Isrc/unix
+CFLAGS += -DHAVE_DTRACE
+endif
 
-uv.a: $(OBJS) src/cares.o src/fs-poll.o src/uv-common.o src/unix/ev/ev.o src/unix/uv-eio.o src/unix/eio/eio.o $(CARES_OBJS)
-	$(AR) rcs uv.a $^
+ifneq (darwin,$(PLATFORM))
+# Must correspond with UV_VERSION_MAJOR and UV_VERSION_MINOR in src/version.c
+SO_LDFLAGS = -Wl,-soname,libuv.so.0.11
+endif
 
-src/%.o: src/%.c include/uv.h include/uv-private/uv-unix.h
-	$(CC) $(CSTDFLAG) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+RUNNER_LDFLAGS += $(LDFLAGS)
 
-src/unix/%.o: src/unix/%.c include/uv.h include/uv-private/uv-unix.h src/unix/internal.h
-	$(CC) $(CSTDFLAG) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+libuv.a: $(OBJS)
+	$(AR) rcs $@ $^
 
-src/unix/ev/ev.o: src/unix/ev/ev.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c src/unix/ev/ev.c -o src/unix/ev/ev.o -DEV_CONFIG_H=\"$(EV_CONFIG)\"
+libuv.$(SOEXT):	override CFLAGS += -fPIC
+libuv.$(SOEXT):	$(OBJS:%.o=%.pic.o)
+	$(CC) -shared -o $@ $^ $(LDFLAGS) $(SO_LDFLAGS)
 
+include/uv-private/uv-unix.h: \
+	include/uv-private/uv-bsd.h \
+	include/uv-private/uv-darwin.h \
+	include/uv-private/uv-linux.h \
+	include/uv-private/uv-sunos.h
 
-EIO_CPPFLAGS += $(CPPFLAGS)
-EIO_CPPFLAGS += -DEIO_CONFIG_H=\"$(EIO_CONFIG)\"
-EIO_CPPFLAGS += -DEIO_STACKSIZE=262144
-EIO_CPPFLAGS += -D_GNU_SOURCE
+src/unix/internal.h: src/unix/linux-syscalls.h src/uv-common.h
+src/uv-common.h: src/queue.h
 
-src/unix/eio/eio.o: src/unix/eio/eio.c
-	$(CC) $(EIO_CPPFLAGS) $(CFLAGS) -c src/unix/eio/eio.c -o src/unix/eio/eio.o
+src/.buildstamp src/unix/.buildstamp test/.buildstamp:
+	mkdir -p $(@D)
+	touch $@
 
-src/unix/uv-eio.o: src/unix/uv-eio.c
-	$(CC) $(CPPFLAGS) -Isrc/unix/eio/ $(CSTDFLAG) $(CFLAGS) -c src/unix/uv-eio.c -o src/unix/uv-eio.o
+src/unix/%.o src/unix/%.pic.o: src/unix/%.c include/uv.h include/uv-private/uv-unix.h src/unix/internal.h src/unix/.buildstamp $(DTRACE_HEADER)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
+src/%.o src/%.pic.o: src/%.c include/uv.h include/uv-private/uv-unix.h src/.buildstamp
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+test/%.o: test/%.c include/uv.h test/.buildstamp
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 clean-platform:
-	-rm -f src/ares/*.o
-	-rm -f src/unix/*.o
-	-rm -f src/unix/ev/*.o
-	-rm -f src/unix/eio/*.o
-	-rm -f src/unix/linux/*.o
-	-rm -rf test/run-tests.dSYM run-benchmarks.dSYM
+	$(RM) test/run-{tests,benchmarks}.dSYM $(OBJS) $(OBJS:%.o=%.pic.o) src/unix/uv-dtrace.h
 
-distclean-platform:
-	-rm -f src/ares/*.o
-	-rm -f src/unix/*.o
-	-rm -f src/unix/ev/*.o
-	-rm -f src/unix/eio/*.o
-	-rm -f src/unix/linux/*.o
-	-rm -rf test/run-tests.dSYM run-benchmarks.dSYM
+src/unix/uv-dtrace.h: src/unix/uv-dtrace.d
+	dtrace -h -xnolibs -s $< -o $@
+
+src/unix/dtrace.o: src/unix/uv-dtrace.d $(DTRACE_OBJS)
+	dtrace -G -s $^ -o $@
+
+src/unix/dtrace.pic.o: src/unix/uv-dtrace.d $(DTRACE_OBJS:%.o=%.pic.o)
+	dtrace -G -s $^ -o $@
